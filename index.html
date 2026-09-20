@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PIN IT</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+
+<style>
+  :root{
+    --glow-red:255,70,95;
+    --glow-gold:255,215,0;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;
+    font-family:'Poppins',sans-serif;
+    overflow:hidden;
+    user-select:none;
+    background:
+      radial-gradient(circle at 25% 15%, rgba(80,20,60,.35) 0%, transparent 45%),
+      radial-gradient(circle at 80% 85%, rgba(20,30,80,.35) 0%, transparent 50%),
+      linear-gradient(160deg,#0b0c1a 0%, #08080f 55%, #000000 100%);
+    background-attachment:fixed;
+  }
+  #app{position:relative;width:100vw;height:100vh;}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;}
+  .hidden{display:none !important;}
+
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes mapIn{from{opacity:0;transform:scale(.85);}to{opacity:1;transform:scale(1);}}
+  @keyframes popIn{0%{opacity:0;transform:translateX(-50%) scale(.6) translateY(-10px);}60%{opacity:1;transform:translateX(-50%) scale(1.08);}100%{transform:translateX(-50%) scale(1);}}
+  @keyframes dropIn{0%{transform:translateY(-30px) scale(.5);opacity:0;}60%{transform:translateY(3px) scale(1.1);opacity:1;}100%{transform:translateY(0) scale(1);}}
+  @keyframes glowPulse{
+    0%,100%{filter:drop-shadow(0 0 6px rgba(var(--glow-red),.55)) drop-shadow(0 0 20px rgba(var(--glow-red),.30));}
+    50%{filter:drop-shadow(0 0 10px rgba(var(--glow-red),.75)) drop-shadow(0 0 32px rgba(var(--glow-red),.45));}
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .anim-fadeIn{animation:fadeIn .5s ease both;}
+  .anim-mapIn{animation:mapIn .55s cubic-bezier(.2,.8,.3,1) both;}
+  .anim-popIn{animation:popIn .4s cubic-bezier(.2,.8,.3,1) both;}
+  .anim-dropIn{animation:dropIn .4s cubic-bezier(.2,.8,.3,1) both; transform-origin:bottom center;}
+
+  .country-shape{
+    fill:#b5484f;
+    stroke:rgba(255,255,255,.18);
+    stroke-width:.6;
+    animation:glowPulse 3.4s ease-in-out infinite;
+  }
+  svg.country-svg{overflow:visible;}
+  .pin{pointer-events:none;}
+  .pin path{stroke-width:1.2;}
+  .drag-pin{pointer-events:auto;cursor:grab;touch-action:none;}
+  .drag-pin.dragging{cursor:grabbing;}
+  .drag-pin path{fill:#ffffff;stroke:#1a1a1a;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5)) drop-shadow(0 0 10px rgba(255,255,255,.55));}
+  .drag-pin circle{fill:#b5484f;}
+  .drag-pin.dragging{transform:scale(1.2);transition:transform .12s ease;}
+  .pin-capital path{fill:#ffd700;stroke:#5c4a00;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5)) drop-shadow(0 0 12px rgba(255,215,0,.7));}
+  .pin-capital circle{fill:#7a1f1f;}
+  .link-line{stroke:rgba(255,255,255,.55);stroke-width:2;stroke-dasharray:5 6;}
+
+  .glass{
+    background:rgba(255,255,255,.06);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,.12);
+  }
+  .btn-primary{
+    background:linear-gradient(135deg,#ff5f7a 0%,#c22a4d 55%,#7a1f3a 100%);
+    box-shadow:0 4px 24px rgba(255,60,100,.35), inset 0 1px 0 rgba(255,255,255,.25);
+    transition:transform .15s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .btn-primary:hover{filter:brightness(1.12);box-shadow:0 6px 30px rgba(255,60,100,.5), inset 0 1px 0 rgba(255,255,255,.3);}
+  .btn-primary:active{transform:scale(.94);}
+  .btn-primary.disabled{
+    background:linear-gradient(135deg,#3a2a30,#241a1e);
+    box-shadow:none;color:#8a8a8a;pointer-events:none;filter:none;
+  }
+  .spinner{
+    width:44px;height:44px;border-radius:9999px;
+    border:3px solid rgba(255,255,255,.15);
+    border-top-color:#ff5f7a;
+    animation:spin .9s linear infinite;
+  }
+  .bar-fill{transition:width .6s cubic-bezier(.2,.8,.3,1);}
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:8px;}
+</style>
+</head>
+<body class="text-white">
+<div id="app">
+
+  <!-- LOADING SCREEN -->
+  <div class="screen" id="screen-loading">
+    <div class="flex-1 flex flex-col items-center justify-center gap-5">
+      <div class="spinner"></div>
+      <div class="text-sm tracking-widest text-white/50">ЗАВАНТАЖЕННЯ КАРТ...</div>
+    </div>
+  </div>
+
+  <!-- START SCREEN -->
+  <div class="screen hidden" id="screen-start">
+    <div class="flex-1 flex flex-col items-center justify-center text-center gap-6 px-6">
+      <div class="anim-fadeIn text-5xl sm:text-7xl font-extrabold tracking-[.2em] flex items-center gap-4 bg-gradient-to-r from-pink-300 via-rose-400 to-red-500 bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(255,90,130,.35)]">
+        PIN IT <span class="drop-shadow-none">🌸</span>
+      </div>
+      <div class="anim-fadeIn text-white/60 max-w-md text-sm sm:text-base tracking-wide" style="animation-delay:.1s">
+        Перетягни маркер на карту столиці. Чим точніше — тим більше балів. 10 країн, 10 раундів.
+      </div>
+      <button id="btn-start" class="anim-fadeIn btn-primary text-white font-semibold tracking-[.25em] text-sm sm:text-base px-12 py-4 rounded-full" style="animation-delay:.2s">
+        START GAME
+      </button>
+    </div>
+  </div>
+
+  <!-- ROUND SCREEN -->
+  <div class="screen hidden" id="screen-round">
+    <div class="glass rounded-2xl mx-4 mt-4 md:mx-8 md:mt-6 px-6 py-4 flex items-center justify-between shadow-lg anim-fadeIn">
+      <div class="leading-6">
+        <div id="round-label" class="text-sm md:text-base tracking-widest font-medium">ROUND 1/10</div>
+        <div id="score-label" class="text-sm md:text-base tracking-widest text-white/70">SCORE 0</div>
+      </div>
+      <div class="text-sm md:text-lg tracking-widest font-semibold flex items-center gap-2">PIN IT <span>🌸</span></div>
+    </div>
+
+    <div id="feedback-label" class="hidden absolute left-1/2 top-4 md:top-6 -translate-x-1/2 font-extrabold tracking-wider text-2xl md:text-4xl bg-gradient-to-r from-yellow-200 via-yellow-400 to-amber-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(255,215,0,.45)] z-10"></div>
+
+    <div class="flex-1 flex items-center justify-center px-4 min-h-0 relative">
+      <div id="map-box" class="w-[88vw] max-w-[560px] h-[54vh] max-h-[560px] flex items-center justify-center"></div>
+    </div>
+
+    <div class="px-5 md:px-8 pb-5 md:pb-6 flex items-end justify-between gap-4">
+      <div id="question-box" class="glass rounded-xl px-4 py-3 max-w-[60%]">
+        <div id="question-text" class="text-[11px] md:text-sm tracking-widest text-white/70"></div>
+        <div id="distance-info" class="hidden text-[11px] md:text-sm tracking-wide text-white/70 leading-relaxed"></div>
+      </div>
+      <button id="btn-action" class="btn-primary text-white font-semibold tracking-[.2em] text-xs md:text-base px-8 md:px-10 py-3 md:py-4 rounded-full shrink-0">LOCK IN</button>
+    </div>
+  </div>
+
+  <!-- FINAL SCREEN -->
+  <div class="screen hidden" id="screen-final">
+    <div class="px-6 pt-6 flex justify-end">
+      <div class="text-sm md:text-lg tracking-widest font-semibold flex items-center gap-2">PIN IT <span>🌸</span></div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-4 sm:px-8 pb-10">
+      <div class="max-w-2xl mx-auto">
+        <div class="text-center text-3xl md:text-5xl font-extrabold tracking-[.15em] my-6 bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">YOUR ROUNDS</div>
+        <div class="glass rounded-2xl p-5 md:p-7">
+          <div id="rounds-list" class="flex flex-col gap-3"></div>
+        </div>
+        <div class="flex justify-center gap-10 md:gap-16 my-8">
+          <div class="text-center">
+            <div id="final-total" class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-400">0</div>
+            <div class="text-[11px] md:text-xs tracking-widest text-white/50 mt-1">TOTAL SCORE</div>
+          </div>
+          <div class="text-center">
+            <div id="final-avg" class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-400">0</div>
+            <div class="text-[11px] md:text-xs tracking-widest text-white/50 mt-1">AVG / ROUND</div>
+          </div>
+        </div>
+        <div class="flex justify-center pb-4">
+          <button id="btn-again" class="btn-primary text-white font-semibold tracking-[.25em] text-sm md:text-base px-12 py-4 rounded-full">PLAY AGAIN</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+
+/* =========================================================
+   COUNTRY DEFINITIONS + LOW-RES FALLBACK BOUNDARIES
+   (fallback used only if the high-res CDN fetch fails)
+   ========================================================= */
+const RAW_COUNTRIES = [
+  { name:"Франція", capital:"Париж", lat:48.8566, lng:2.3522, countrySizeKm:1000, iso:250,
+    fallbackRings:[[[9.560016,42.152492],[9.229752,41.380007],[8.775723,41.583612],[8.544213,42.256517],[8.746009,42.628122],[9.390001,43.009985],[9.560016,42.152492]],[[3.588184,50.378992],[4.286023,49.907497],[4.799222,49.985373],[5.674052,49.529484],[5.897759,49.442667],[6.18632,49.463803],[6.65823,49.201958],[8.099279,49.017784],[7.593676,48.333019],[7.466759,47.620582],[7.192202,47.449766],[6.736571,47.541801],[6.768714,47.287708],[6.037389,46.725779],[6.022609,46.27299],[6.5001,46.429673],[6.843593,45.991147],[6.802355,45.70858],[7.096652,45.333099],[6.749955,45.028518],[7.007562,44.254767],[7.549596,44.127901],[7.435185,43.693845],[6.529245,43.128892],[4.556963,43.399651],[3.100411,43.075201],[2.985999,42.473015],[1.826793,42.343385],[0.701591,42.795734],[0.338047,42.579546],[-1.502771,43.034014],[-1.901351,43.422802],[-1.384225,44.02261],[-1.193798,46.014918],[-2.225724,47.064363],[-2.963276,47.570327],[-4.491555,47.954954],[-4.59235,48.68416],[-3.295814,48.901692],[-1.616511,48.644421],[-1.933494,49.776342],[-0.989469,49.347376],[1.338761,50.127173],[1.639001,50.946606],[2.513573,51.148506],[2.658422,50.796848],[3.123252,50.780363],[3.588184,50.378992]]] },
+  { name:"Іспанія", capital:"Мадрид", lat:40.4168, lng:-3.7038, countrySizeKm:950, iso:724,
+    fallbackRings:[[[-9.034818,41.880571],[-8.984433,42.592775],[-9.392884,43.026625],[-7.97819,43.748338],[-6.754492,43.567909],[-5.411886,43.57424],[-4.347843,43.403449],[-3.517532,43.455901],[-1.901351,43.422802],[-1.502771,43.034014],[0.338047,42.579546],[0.701591,42.795734],[1.826793,42.343385],[2.985999,42.473015],[3.039484,41.89212],[2.091842,41.226089],[0.810525,41.014732],[0.721331,40.678318],[0.106692,40.123934],[-0.278711,39.309978],[0.111291,38.738514],[-0.467124,38.292366],[-0.683389,37.642354],[-1.438382,37.443064],[-2.146453,36.674144],[-3.415781,36.6589],[-4.368901,36.677839],[-4.995219,36.324708],[-5.37716,35.94685],[-5.866432,36.029817],[-6.236694,36.367677],[-6.520191,36.942913],[-7.453726,37.097788],[-7.537105,37.428904],[-7.166508,37.803894],[-7.029281,38.075764],[-7.374092,38.373059],[-7.098037,39.030073],[-7.498632,39.629571],[-7.066592,39.711892],[-7.026413,40.184524],[-6.86402,40.330872],[-6.851127,41.111083],[-6.389088,41.381815],[-6.668606,41.883387],[-7.251309,41.918346],[-7.422513,41.792075],[-8.013175,41.790886],[-8.263857,42.280469],[-8.671946,42.134689],[-9.034818,41.880571]]] },
+  { name:"Німеччина", capital:"Берлін", lat:52.5200, lng:13.4050, countrySizeKm:950, iso:276,
+    fallbackRings:[[[9.921906,54.983104],[9.93958,54.596642],[10.950112,54.363607],[10.939467,54.008693],[11.956252,54.196486],[12.51844,54.470371],[13.647467,54.075511],[14.119686,53.757029],[14.353315,53.248171],[14.074521,52.981263],[14.4376,52.62485],[14.685026,52.089947],[14.607098,51.745188],[15.016996,51.106674],[14.570718,51.002339],[14.307013,51.117268],[14.056228,50.926918],[13.338132,50.733234],[12.966837,50.484076],[12.240111,50.266338],[12.415191,49.969121],[12.521024,49.547415],[13.031329,49.307068],[13.595946,48.877172],[13.243357,48.416115],[12.884103,48.289146],[13.025851,47.637584],[12.932627,47.467646],[12.62076,47.672388],[12.141357,47.703083],[11.426414,47.523766],[10.544504,47.566399],[10.402084,47.302488],[9.896068,47.580197],[9.594226,47.525058],[8.522612,47.830828],[8.317301,47.61358],[7.466759,47.620582],[7.593676,48.333019],[8.099279,49.017784],[6.65823,49.201958],[6.18632,49.463803],[6.242751,49.902226],[6.043073,50.128052],[6.156658,50.803721],[5.988658,51.851616],[6.589397,51.852029],[6.84287,52.22844],[7.092053,53.144043],[6.90514,53.482162],[7.100425,53.693932],[7.936239,53.748296],[8.121706,53.527792],[8.800734,54.020786],[8.572118,54.395646],[8.526229,54.962744],[9.282049,54.830865],[9.921906,54.983104]]] },
+  { name:"Італія", capital:"Рим", lat:41.9028, lng:12.4964, countrySizeKm:1000, iso:380,
+    fallbackRings:[[[15.520376,38.231155],[15.160243,37.444046],[15.309898,37.134219],[15.099988,36.619987],[14.335229,36.996631],[13.826733,37.104531],[12.431004,37.61295],[12.570944,38.126381],[13.741156,38.034966],[14.761249,38.143874],[15.520376,38.231155]],[[9.210012,41.209991],[9.809975,40.500009],[9.669519,39.177376],[9.214818,39.240473],[8.806936,38.906618],[8.428302,39.171847],[8.388253,40.378311],[8.159998,40.950007],[8.709991,40.899984],[9.210012,41.209991]],[[12.376485,46.767559],[13.806475,46.509306],[13.69811,46.016778],[13.93763,45.591016],[13.141606,45.736692],[12.328581,45.381778],[12.383875,44.885374],[12.261453,44.600482],[12.589237,44.091366],[13.526906,43.587727],[14.029821,42.761008],[15.14257,41.95514],[15.926191,41.961315],[16.169897,41.740295],[15.889346,41.541082],[16.785002,41.179606],[17.519169,40.877143],[18.376687,40.355625],[18.480247,40.168866],[18.293385,39.810774],[17.73838,40.277671],[16.869596,40.442235],[16.448743,39.795401],[17.17149,39.4247],[17.052841,38.902871],[16.635088,38.843572],[16.100961,37.985899],[15.684087,37.908849],[15.687963,38.214593],[15.891981,38.750942],[16.109332,38.964547],[15.718814,39.544072],[15.413613,40.048357],[14.998496,40.172949],[14.703268,40.60455],[14.060672,40.786348],[13.627985,41.188287],[12.888082,41.25309],[12.106683,41.704535],[11.191906,42.355425],[10.511948,42.931463],[10.200029,43.920007],[9.702488,44.036279],[8.888946,44.366336],[8.428561,44.231228],[7.850767,43.767148],[7.435185,43.693845],[7.549596,44.127901],[7.007562,44.254767],[6.749955,45.028518],[7.096652,45.333099],[6.802355,45.70858],[6.843593,45.991147],[7.273851,45.776948],[7.755992,45.82449],[8.31663,46.163642],[8.489952,46.005151],[8.966306,46.036932],[9.182882,46.440215],[9.922837,46.314899],[10.363378,46.483571],[10.442701,46.893546],[11.048556,46.751359],[11.164828,46.941579],[12.153088,47.115393],[12.376485,46.767559]]] },
+  { name:"Польща", capital:"Варшава", lat:52.2297, lng:21.0122, countrySizeKm:650, iso:616,
+    fallbackRings:[[[15.016996,51.106674],[14.607098,51.745188],[14.685026,52.089947],[14.4376,52.62485],[14.074521,52.981263],[14.353315,53.248171],[14.119686,53.757029],[14.8029,54.050706],[16.363477,54.513159],[17.622832,54.851536],[18.620859,54.682606],[18.696255,54.438719],[19.66064,54.426084],[20.892245,54.312525],[22.731099,54.327537],[23.243987,54.220567],[23.484128,53.912498],[23.527536,53.470122],[23.804935,53.089731],[23.799199,52.691099],[23.199494,52.486977],[23.508002,52.023647],[23.527071,51.578454],[24.029986,50.705407],[23.922757,50.424881],[23.426508,50.308506],[22.51845,49.476774],[22.776419,49.027395],[22.558138,49.085738],[21.607808,49.470107],[20.887955,49.328772],[20.415839,49.431453],[19.825023,49.217125],[19.320713,49.571574],[18.909575,49.435846],[18.853144,49.49623],[18.392914,49.988629],[17.649445,50.049038],[17.554567,50.362146],[16.868769,50.473974],[16.719476,50.215747],[16.176253,50.422607],[16.238627,50.697733],[15.490972,50.78473],[15.016996,51.106674]]] },
+  { name:"Швеція", capital:"Стокгольм", lat:59.3293, lng:18.0686, countrySizeKm:1500, iso:752,
+    fallbackRings:[[[22.183173,65.723741],[21.213517,65.026005],[21.369631,64.413588],[19.778876,63.609554],[17.847779,62.7494],[17.119555,61.341166],[17.831346,60.636583],[18.787722,60.081914],[17.869225,58.953766],[16.829185,58.719827],[16.44771,57.041118],[15.879786,56.104302],[14.666681,56.200885],[14.100721,55.407781],[12.942911,55.361737],[12.625101,56.30708],[11.787942,57.441817],[11.027369,58.856149],[11.468272,59.432393],[12.300366,60.117933],[12.631147,61.293572],[11.992064,61.800362],[11.930569,63.128318],[12.579935,64.066219],[13.571916,64.049114],[13.919905,64.445421],[13.55569,64.787028],[15.108411,66.193867],[16.108712,67.302456],[16.768879,68.013937],[17.729182,68.010552],[17.993868,68.567391],[19.87856,68.407194],[20.025269,69.065139],[20.645593,69.106247],[21.978535,68.616846],[23.539473,67.936009],[23.56588,66.396051],[23.903379,66.006927],[22.183173,65.723741]]] },
+  { name:"Нідерланди", capital:"Амстердам", lat:52.3676, lng:4.9041, countrySizeKm:300, iso:528,
+    fallbackRings:[[[6.074183,53.510403],[6.90514,53.482162],[7.092053,53.144043],[6.84287,52.22844],[6.589397,51.852029],[5.988658,51.851616],[6.156658,50.803721],[5.606976,51.037298],[4.973991,51.475024],[4.047071,51.267259],[3.314971,51.345755],[3.830289,51.620545],[4.705997,53.091798],[6.074183,53.510403]]] },
+  { name:"Бельгія", capital:"Брюссель", lat:50.8503, lng:4.3517, countrySizeKm:300, iso:56,
+    fallbackRings:[[[3.314971,51.345781],[4.047071,51.267259],[4.973991,51.475024],[5.606976,51.037298],[6.156658,50.803721],[6.043073,50.128052],[5.782417,50.090328],[5.674052,49.529484],[4.799222,49.985373],[4.286023,49.907497],[3.588184,50.378992],[3.123252,50.780363],[2.658422,50.796848],[2.513573,51.148506],[3.314971,51.345781]]] },
+  { name:"Чеська Республіка", capital:"Прага", lat:50.0755, lng:14.4378, countrySizeKm:600, iso:203,
+    fallbackRings:[[[16.960288,48.596982],[16.499283,48.785808],[16.029647,48.733899],[15.253416,49.039074],[14.901447,48.964402],[14.338898,48.555305],[13.595946,48.877172],[13.031329,49.307068],[12.521024,49.547415],[12.415191,49.969121],[12.240111,50.266338],[12.966837,50.484076],[13.338132,50.733234],[14.056228,50.926918],[14.307013,51.117268],[14.570718,51.002339],[15.016996,51.106674],[15.490972,50.78473],[16.238627,50.697733],[16.176253,50.422607],[16.719476,50.215747],[16.868769,50.473974],[17.554567,50.362146],[17.649445,50.049038],[18.392914,49.988629],[18.853144,49.49623],[18.554971,49.495015],[18.399994,49.315001],[18.170498,49.271515],[18.104973,49.043983],[17.913512,48.996493],[17.886485,48.903475],[17.545007,48.800019],[17.101985,48.816969],[16.960288,48.596982]]] },
+  { name:"Греція", capital:"Афіни", lat:37.9838, lng:23.7275, countrySizeKm:900, iso:300,
+    fallbackRings:[[[23.69998,35.705004],[24.246665,35.368022],[25.025015,35.424996],[25.769208,35.354018],[25.745023,35.179998],[26.290003,35.29999],[26.164998,35.004995],[24.724982,34.919988],[24.735007,35.084991],[23.514978,35.279992],[23.69998,35.705004]],[[26.604196,41.562115],[26.294602,40.936261],[26.056942,40.824123],[25.447677,40.852545],[24.925848,40.947062],[23.714811,40.687129],[24.407999,40.124993],[23.899968,39.962006],[23.342999,39.960998],[22.813988,40.476005],[22.626299,40.256561],[22.849748,39.659311],[23.350027,39.190011],[22.973099,38.970903],[23.530016,38.510001],[24.025025,38.219993],[24.040011,37.655015],[23.115003,37.920011],[23.409972,37.409991],[22.774972,37.30501],[23.154225,36.422506],[22.490028,36.41],[21.670026,36.844986],[21.295011,37.644989],[21.120034,38.310323],[20.730032,38.769985],[20.217712,39.340235],[20.150016,39.624998],[20.615,40.110007],[20.674997,40.435],[20.99999,40.580004],[21.02004,40.842727],[21.674161,40.931275],[22.055378,41.149866],[22.597308,41.130487],[22.76177,41.3048],[22.952377,41.337994],[23.692074,41.309081],[24.492645,41.583896],[25.197201,41.234486],[26.106138,41.328899],[26.117042,41.826905],[26.604196,41.562115]]] }
+];
+
+const TOPO_URL="https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json";
+
+/* =========================================================
+   GEOMETRY HELPERS
+   ========================================================= */
+function ringExtent(ring){
+  let minLon=Infinity,maxLon=-Infinity,minLat=Infinity,maxLat=-Infinity;
+  for(const p of ring){ if(p[0]<minLon)minLon=p[0]; if(p[0]>maxLon)maxLon=p[0]; if(p[1]<minLat)minLat=p[1]; if(p[1]>maxLat)maxLat=p[1]; }
+  return Math.max(maxLon-minLon, maxLat-minLat);
+}
+function simplifyRing(ring, maxPoints){
+  if(ring.length<=maxPoints) return ring;
+  const stride=Math.ceil(ring.length/maxPoints);
+  const out=[];
+  for(let i=0;i<ring.length;i+=stride) out.push(ring[i]);
+  return out;
+}
+function ringCentroid(ring){
+  let sx=0,sy=0;
+  for(const p of ring){ sx+=p[0]; sy+=p[1]; }
+  return [sx/ring.length, sy/ring.length];
+}
+function extractRingsFromGeometry(geometry){
+  if(!geometry) return null;
+  let polys;
+  if(geometry.type==="Polygon") polys=[geometry.coordinates];
+  else if(geometry.type==="MultiPolygon") polys=geometry.coordinates;
+  else return null;
+  let rings=polys.map(function(poly){ return poly[0]; }); // outer ring only
+  if(!rings.length) return null;
+
+  // drop tiny islets relative to the largest landmass
+  let extents=rings.map(ringExtent);
+  let maxExtent=Math.max.apply(null, extents);
+  rings=rings.filter(function(r,i){ return extents[i] >= maxExtent*0.02; });
+  if(!rings.length) return null;
+
+  // drop remote overseas territories (e.g. French Guiana, Réunion) that would
+  // otherwise blow out the bounding box and make the mainland render tiny.
+  // Keep only landmasses geographically close to the largest one (the mainland).
+  extents=rings.map(ringExtent);
+  maxExtent=Math.max.apply(null, extents);
+  const mainIdx=extents.indexOf(maxExtent);
+  const mainCenter=ringCentroid(rings[mainIdx]);
+  const reach=Math.max(maxExtent*3, 5); // degrees; generous enough for nearby islands (Corsica, Crete...)
+  rings=rings.filter(function(r){
+    const c=ringCentroid(r);
+    const d=Math.hypot(c[0]-mainCenter[0], c[1]-mainCenter[1]);
+    return d<=reach;
+  });
+
+  return rings.map(function(r){ return simplifyRing(r, 350); });
+}
+
+async function loadHighResBoundaries(){
+  const res=await fetch(TOPO_URL);
+  if(!res.ok) throw new Error("fetch failed");
+  const topo=await res.json();
+  const geo=topojson.feature(topo, topo.objects.countries);
+  const byIso={};
+  geo.features.forEach(function(f){ byIso[parseInt(f.id,10)]=f; });
+  RAW_COUNTRIES.forEach(function(c){
+    const f=byIso[c.iso];
+    const rings=f?extractRingsFromGeometry(f.geometry):null;
+    c.rings = rings && rings.length ? rings : c.fallbackRings;
+  });
+}
+
+function buildProjection(rings, targetMax, padRatio){
+  let minLon=Infinity,maxLon=-Infinity,minLat=Infinity,maxLat=-Infinity;
+  rings.forEach(function(ring){ ring.forEach(function(p){
+    const lon=p[0], lat=p[1];
+    if(lon<minLon)minLon=lon; if(lon>maxLon)maxLon=lon;
+    if(lat<minLat)minLat=lat; if(lat>maxLat)maxLat=lat;
+  }); });
+  const midLat=(minLat+maxLat)/2;
+  const cos=Math.cos(midLat*Math.PI/180);
+  const rawW=(maxLon-minLon)*cos;
+  const rawH=(maxLat-minLat);
+  const pad=Math.max(rawW,rawH)*padRatio;
+  const w=rawW+2*pad, h=rawH+2*pad;
+  const scale=targetMax/Math.max(w,h);
+  return {
+    svgW:w*scale, svgH:h*scale,
+    project:function(lon,lat){
+      const xRaw=(lon-minLon)*cos+pad;
+      const yRaw=(maxLat-lat)+pad;
+      return [xRaw*scale, yRaw*scale];
+    },
+    unproject:function(x,y){
+      const xRaw=x/scale-pad;
+      const yRaw=y/scale-pad;
+      return [xRaw/cos+minLon, maxLat-yRaw];
+    }
+  };
+}
+
+function smoothRingPath(ringXY){
+  const n=ringXY.length;
+  if(n<3) return "";
+  const pt=function(i){ return ringXY[(i+n)%n]; };
+  const mid=function(a,b){ return [(a[0]+b[0])/2, (a[1]+b[1])/2]; };
+  const start=mid(pt(n-1), pt(0));
+  let d="M"+start[0].toFixed(2)+","+start[1].toFixed(2);
+  for(let i=0;i<n;i++){
+    const cur=pt(i), nxt=pt(i+1), m=mid(cur,nxt);
+    d+=" Q"+cur[0].toFixed(2)+","+cur[1].toFixed(2)+" "+m[0].toFixed(2)+","+m[1].toFixed(2);
+  }
+  return d+" Z";
+}
+
+function pointInRingXY(x,y,ringXY){
+  let inside=false;
+  for(let i=0,j=ringXY.length-1;i<ringXY.length;j=i++){
+    const xi=ringXY[i][0], yi=ringXY[i][1];
+    const xj=ringXY[j][0], yj=ringXY[j][1];
+    const intersect=((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
+    if(intersect) inside=!inside;
+  }
+  return inside;
+}
+
+function haversineKm(lat1,lon1,lat2,lon2){
+  const R=6371;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function calcScore(distanceKm, countrySizeKm, insideCountry){
+  if(!insideCountry) return 0;
+  const pct=(distanceKm/countrySizeKm)*100;
+  let score;
+  if(pct<=5) score=100;
+  else if(pct<=50) score=100-(pct-5)*(50/45);
+  else if(pct<=100){ const t=(pct-50)/50; score=50*(1-t)*(1-t); }
+  else score=0;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function feedbackLabel(score){
+  if(score>=90) return "PERFECT";
+  if(score>=60) return "NICE";
+  if(score>=30) return "CLOSE";
+  return "MISS";
+}
+
+function pinSVG(cls){
+  return '<g class="pin '+cls+'">'+
+    '<path d="M0,0 C-9,-13 -15,-21 -15,-30 C-15,-43 -8,-52 0,-52 C8,-52 15,-43 15,-30 C15,-21 9,-13 0,0 Z"></path>'+
+    '<circle cx="0" cy="-31" r="7"></circle>'+
+    '</g>';
+}
+
+/* =========================================================
+   GAME STATE
+   ========================================================= */
+const state={ order:[], round:0, score:0, roundScores:[], country:null, proj:null, ringsXY:null, locked:false, pinTarget:null };
+
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
+  return a;
+}
+
+const screenLoading=document.getElementById('screen-loading');
+const screenStart=document.getElementById('screen-start');
+const screenRound=document.getElementById('screen-round');
+const screenFinal=document.getElementById('screen-final');
+const roundLabel=document.getElementById('round-label');
+const scoreLabel=document.getElementById('score-label');
+const mapBox=document.getElementById('map-box');
+const questionText=document.getElementById('question-text');
+const distanceInfo=document.getElementById('distance-info');
+const feedbackLabelEl=document.getElementById('feedback-label');
+const btnAction=document.getElementById('btn-action');
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-again').addEventListener('click', startGame);
+btnAction.addEventListener('click', onActionClick);
+
+(async function init(){
+  try{ await loadHighResBoundaries(); }
+  catch(e){
+    console.warn("High-res boundary fetch failed, using fallback data.", e);
+    RAW_COUNTRIES.forEach(function(c){ c.rings=c.fallbackRings; });
+  }
+  screenLoading.classList.add('hidden');
+  screenStart.classList.remove('hidden');
+})();
+
+function startGame(){
+  state.order=shuffle(RAW_COUNTRIES);
+  state.round=0; state.score=0; state.roundScores=[];
+  screenStart.classList.add('hidden');
+  screenFinal.classList.add('hidden');
+  screenRound.classList.remove('hidden');
+  loadRound();
+}
+
+function loadRound(){
+  state.locked=false;
+  const country=state.order[state.round];
+  state.country=country;
+
+  const proj=buildProjection(country.rings, 600, 0.09);
+  state.proj=proj;
+  state.ringsXY=country.rings.map(function(ring){ return ring.map(function(p){ return proj.project(p[0],p[1]); }); });
+
+  roundLabel.textContent="ROUND "+(state.round+1)+"/10";
+  scoreLabel.textContent="SCORE "+state.score;
+  questionText.textContent="ЗНАЙДИ ДЕ СТОЛИЦЯ "+country.name.toUpperCase()+"!";
+  questionText.classList.remove('hidden');
+  distanceInfo.classList.add('hidden');
+  feedbackLabelEl.classList.add('hidden');
+  feedbackLabelEl.textContent="";
+  btnAction.textContent="LOCK IN";
+  btnAction.classList.remove('disabled');
+
+  const pathD=state.ringsXY.map(smoothRingPath).join(' ');
+  const startX=proj.svgW/2, startY=proj.svgH/2;
+
+  mapBox.innerHTML=
+    '<svg class="country-svg anim-mapIn" id="country-svg" viewBox="0 0 '+proj.svgW.toFixed(2)+' '+proj.svgH.toFixed(2)+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;">'+
+      '<path class="country-shape" d="'+pathD+'"></path>'+
+      '<g id="pins-layer"></g>'+
+      '<g id="drag-pin-pos" transform="translate('+startX.toFixed(2)+','+startY.toFixed(2)+')">'+
+        '<g id="drag-pin" class="pin drag-pin anim-dropIn">'+
+          '<circle class="pin-hitarea" cx="0" cy="-26" r="34" style="fill:transparent;" pointer-events="all"></circle>'+
+          '<path d="M0,0 C-9,-13 -15,-21 -15,-30 C-15,-43 -8,-52 0,-52 C8,-52 15,-43 15,-30 C15,-21 9,-13 0,0 Z"></path>'+
+          '<circle cx="0" cy="-31" r="7"></circle>'+
+        '</g>'+
+      '</g>'+
+    '</svg>';
+
+  setupDragPin(document.getElementById('country-svg'), [startX,startY]);
+}
+
+function setupDragPin(svg, startXY){
+  const pinPos=document.getElementById('drag-pin-pos');
+  const pinEl=document.getElementById('drag-pin');
+  let dragging=false;
+  state.pinTarget=startXY.slice();
+
+  // Convert a raw screen point (clientX/clientY) into the SVG's internal
+  // viewBox coordinate space. This accounts for the SVG's viewBox scale,
+  // preserveAspectRatio letterboxing and any CSS sizing in one step, so it
+  // stays exact no matter how the map is scaled/resized (more reliable than
+  // hand-rolling the math from getBoundingClientRect()).
+  function toSvgPoint(clientX, clientY){
+    const pt=svg.createSVGPoint();
+    pt.x=clientX; pt.y=clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+  function setPos(x,y){
+    state.pinTarget=[x,y];
+    pinPos.setAttribute('transform','translate('+x.toFixed(2)+','+y.toFixed(2)+')');
+  }
+  function startDrag(clientX, clientY){
+    if(state.locked) return;
+    dragging=true;
+    pinEl.classList.add('dragging');
+    const p=toSvgPoint(clientX, clientY);
+    setPos(p.x, p.y);
+  }
+  function moveDrag(clientX, clientY){
+    if(!dragging) return;
+    const p=toSvgPoint(clientX, clientY);
+    setPos(p.x, p.y);
+  }
+  function endDrag(){
+    if(!dragging) return;
+    dragging=false;
+    pinEl.classList.remove('dragging');
+  }
+
+  // Mouse: listeners for move/up are attached to window only while a drag is
+  // active, so fast cursor movement never "loses" the pin outside the pin's
+  // own hit area.
+  function onMouseDown(e){
+    if(e.button !== 0) return; // left mouse button only
+    e.preventDefault();
+    startDrag(e.clientX, e.clientY);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+  function onMouseMove(e){
+    if(!dragging) return;
+    if((e.buttons & 1)===0){ onMouseUp(e); return; } // left button released outside the window
+    e.preventDefault();
+    moveDrag(e.clientX, e.clientY);
+  }
+  function onMouseUp(e){
+    if(e.button!==undefined && e.button!==0) return;
+    endDrag();
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  }
+
+  // Touch: same pattern, listening on window while a touch-drag is active.
+  function onTouchStart(e){
+    if(state.locked) return;
+    e.preventDefault();
+    const t=e.touches[0];
+    startDrag(t.clientX, t.clientY);
+    window.addEventListener('touchmove', onTouchMove, {passive:false});
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
+  }
+  function onTouchMove(e){
+    if(!dragging) return;
+    e.preventDefault();
+    const t=e.touches[0];
+    moveDrag(t.clientX, t.clientY);
+  }
+  function onTouchEnd(){
+    endDrag();
+    window.removeEventListener('touchmove', onTouchMove);
+    window.removeEventListener('touchend', onTouchEnd);
+    window.removeEventListener('touchcancel', onTouchEnd);
+  }
+
+  pinEl.addEventListener('mousedown', onMouseDown);
+  pinEl.addEventListener('touchstart', onTouchStart, {passive:false});
+  pinEl.addEventListener('dragstart', function(e){ e.preventDefault(); });
+  pinEl.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+}
+
+function onActionClick(){
+  if(btnAction.classList.contains('disabled')) return;
+  if(!state.locked) lockIn();
+  else nextRound();
+}
+
+function lockIn(){
+  state.locked=true;
+  const svg=document.getElementById('country-svg');
+  const pinEl=document.getElementById('drag-pin');
+  pinEl.style.pointerEvents='none';
+
+  const country=state.country;
+  const proj=state.proj;
+  const pinXY=state.pinTarget;
+
+  const lonLat=proj.unproject(pinXY[0], pinXY[1]);
+  const inside=state.ringsXY.some(function(ringXY){ return pointInRingXY(pinXY[0], pinXY[1], ringXY); });
+  const distanceKm=haversineKm(lonLat[1], lonLat[0], country.lat, country.lng);
+  const score=calcScore(distanceKm, country.countrySizeKm, inside);
+
+  state.roundScores.push(score);
+  state.score+=score;
+
+  const capXY=proj.project(country.lng, country.lat);
+  const pinsLayer=document.getElementById('pins-layer');
+
+  const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('class','link-line');
+  line.setAttribute('x1', pinXY[0].toFixed(2));
+  line.setAttribute('y1', pinXY[1].toFixed(2));
+  line.setAttribute('x2', capXY[0].toFixed(2));
+  line.setAttribute('y2', capXY[1].toFixed(2));
+  pinsLayer.appendChild(line);
+
+  const capWrap=document.createElementNS('http://www.w3.org/2000/svg','g');
+  capWrap.setAttribute('transform','translate('+capXY[0].toFixed(2)+','+capXY[1].toFixed(2)+')');
+  capWrap.innerHTML=pinSVG('pin-capital anim-dropIn');
+  pinsLayer.appendChild(capWrap);
+
+  scoreLabel.textContent="SCORE "+state.score;
+  feedbackLabelEl.textContent=feedbackLabel(score)+"  +"+score;
+  feedbackLabelEl.classList.remove('hidden');
+  feedbackLabelEl.classList.add('anim-popIn');
+
+  questionText.classList.add('hidden');
+  distanceInfo.classList.remove('hidden');
+  distanceInfo.innerHTML="Правильна відповідь: "+country.capital+"<br>Похибка: "+Math.round(distanceKm)+" км";
+
+  btnAction.textContent=(state.round<9)?"NEXT ROUND":"SEE RESULTS";
+}
+
+function nextRound(){
+  state.round++;
+  if(state.round>=10) showFinal();
+  else loadRound();
+}
+
+function showFinal(){
+  screenRound.classList.add('hidden');
+  screenFinal.classList.remove('hidden');
+
+  const list=document.getElementById('rounds-list');
+  list.innerHTML='';
+  state.roundScores.forEach(function(s,i){
+    const row=document.createElement('div');
+    row.className='flex items-center gap-4 text-xs md:text-sm tracking-wide';
+    row.innerHTML=
+      '<div class="w-20 shrink-0 text-white/60">ROUND '+(i+1)+'</div>'+
+      '<div class="flex-1 h-3.5 rounded-full bg-white/10 overflow-hidden border border-white/10">'+
+        '<div class="bar-fill h-full rounded-full bg-gradient-to-r from-rose-600 to-amber-400" style="width:'+s+'%"></div>'+
+      '</div>'+
+      '<div class="w-10 text-right font-semibold text-amber-300">'+s+'</div>';
+    list.appendChild(row);
+  });
+
+  const total=state.roundScores.reduce(function(a,b){return a+b;},0);
+  const avg=Math.round(total/state.roundScores.length);
+  document.getElementById('final-total').textContent=total;
+  document.getElementById('final-avg').textContent=avg;
+}
+
+})();
+</script>
+</body>
+</html>
