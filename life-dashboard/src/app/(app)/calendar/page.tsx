@@ -39,10 +39,12 @@ export default function CalendarPage() {
           </div>
           <Button size="sm" variant="ghost" onClick={() => shift(1)} aria-label="Next month"><ChevronRight size={16} /></Button>
         </div>
-        <div className="grid grid-cols-7 gap-1 sm:gap-2">
+        <div className="mb-1 grid grid-cols-7 gap-1 sm:gap-2" aria-hidden>
           {weekdayNames.map((w) => (
-            <div key={w} className="pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-faint">{w}</div>
+            <div key={w} className="text-center text-[10px] font-semibold uppercase tracking-wider text-faint">{w}</div>
           ))}
+        </div>
+        <div className="grid auto-rows-fr grid-cols-7 gap-1 sm:gap-2">
           {days.map((day) => {
             const inMonth = monthKey(day) === month;
             const s = dayScore(day);
@@ -57,7 +59,7 @@ export default function CalendarPage() {
                 title={label}
                 aria-label={label}
                 className={cx(
-                  "group relative flex aspect-square flex-col rounded-lg border p-1 transition sm:aspect-[1.1] sm:rounded-xl sm:p-2",
+                  "group relative flex aspect-square flex-col overflow-hidden rounded-lg border p-1 transition sm:aspect-[1.1] sm:rounded-xl sm:p-2",
                   inMonth ? "border-line bg-surface-2 hover:border-line-strong" : "border-transparent opacity-35",
                   day === t && "ring-2 ring-accent",
                 )}
@@ -69,7 +71,7 @@ export default function CalendarPage() {
                 ) : (
                   <span className="mt-auto text-center text-xs text-faint">{future ? "" : "·"}</span>
                 )}
-                {s.score !== null && <span className="mx-auto mt-0.5 h-1 w-3/5 rounded-full" style={{ background: BAND_COLOR[band] }} aria-hidden />}
+                {s.score !== null && <span className="mx-auto mt-0.5 hidden h-1 w-3/5 rounded-full sm:block" style={{ background: BAND_COLOR[band] }} aria-hidden />}
                 {areas.length > 0 && <span className="mt-1 hidden truncate text-center text-[10px] leading-none sm:block">{areas.join("")}</span>}
               </Link>
             );

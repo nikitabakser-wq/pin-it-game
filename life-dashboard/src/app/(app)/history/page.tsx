@@ -108,7 +108,7 @@ function History() {
               <Card key={w} className={focus === w ? "ring-2 ring-accent" : ""}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-sm font-semibold">{formatWeek(w)} {w === weekStart(t, wso) && <span className="ml-1 text-xs font-normal text-accent">this week</span>}</h2>
-                  <p className="tabular text-xs text-muted">{scores.length} active days · avg score {avg ?? "—"} · {completed} completed</p>
+                  <p className="tabular text-xs text-muted">{scores.length} active day{scores.length === 1 ? "" : "s"} · avg score {avg ?? "—"} · {completed} completed</p>
                 </div>
                 {weekGoals.length > 0 && (
                   <>

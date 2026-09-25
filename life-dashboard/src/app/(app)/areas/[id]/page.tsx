@@ -66,12 +66,12 @@ export default function AreaPage() {
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-faint">Deadline</dt>
                 <dd className="mt-0.5 font-medium">
-                  {area.deadline ? <>{formatDeadline(area.deadline)} <span className="block text-xs font-normal text-muted">{deadlineLabel(area.deadline)}</span></> : <span className="text-faint">—</span>}
+                  {area.deadline ? <>{formatDeadline(area.deadline)} {deadlineLabel(area.deadline) !== formatDeadline(area.deadline) && <span className="block text-xs font-normal text-muted">{deadlineLabel(area.deadline)}</span>}</> : <span className="text-faint">—</span>}
                 </dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-faint">Last 30 days</dt>
-                <dd className="mt-0.5 font-medium tabular">{days30} active days{minutes30 ? <span className="block text-xs font-normal text-muted">{Math.round(minutes30 / 6) / 10} h logged</span> : null}</dd>
+                <dd className="mt-0.5 font-medium tabular">{days30} active day{days30 === 1 ? "" : "s"}{minutes30 ? <span className="block text-xs font-normal text-muted">{Math.round(minutes30 / 6) / 10} h logged</span> : null}</dd>
               </div>
             </dl>
             <p className="mt-3 text-[11px] text-faint">Progress: {MODE_LABEL[area.progress_mode]} — {p.source}</p>

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "stack:local": "node scripts/local-stack/server.mjs",
+    "e2e": "node scripts/e2e/flow.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -28,6 +30,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "pg": "^8.23.0",
+    "playwright": "^1.56.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.2"

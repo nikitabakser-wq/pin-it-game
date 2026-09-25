@@ -102,7 +102,7 @@ export default function StatsPage() {
         ) : (
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={progressSeries} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <AreaChart data={progressSeries} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="ov" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.25} />
@@ -111,7 +111,7 @@ export default function StatsPage() {
                 </defs>
                 <CartesianGrid vertical={false} stroke="var(--color-line)" />
                 <XAxis dataKey="date" {...AXIS} tickFormatter={formatShort} minTickGap={32} />
-                <YAxis domain={[0, 100]} {...AXIS} width={40} />
+                <YAxis domain={[0, 100]} {...AXIS} width={36} />
                 <Tooltip content={<ChartTooltip fmt={formatShort} />} cursor={{ stroke: "var(--color-line-strong)" }} />
                 <AreaMark type="monotone" dataKey="overall" name="Overall %" stroke="var(--color-accent)" strokeWidth={2} fill="url(#ov)" connectNulls isAnimationActive={false} />
               </AreaChart>
@@ -163,10 +163,10 @@ export default function StatsPage() {
           </p>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={scoreSeries} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barCategoryGap={range === "90" ? 1 : 2}>
+              <BarChart data={scoreSeries} margin={{ top: 4, right: 4, left: -8, bottom: 0 }} barCategoryGap={range === "90" ? 1 : 2}>
                 <CartesianGrid vertical={false} stroke="var(--color-line)" />
                 <XAxis dataKey="date" {...AXIS} tickFormatter={formatShort} minTickGap={24} />
-                <YAxis domain={[0, 100]} {...AXIS} width={40} />
+                <YAxis domain={[0, 100]} {...AXIS} width={36} />
                 <Tooltip content={<ChartTooltip fmt={formatShort} />} cursor={{ fill: "var(--color-surface-3)" }} />
                 <Bar dataKey="score" name="Score" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                   {scoreSeries.map((d) => <Cell key={d.date} fill={BAND_COLOR[scoreBand(d.score)]} />)}
@@ -183,10 +183,10 @@ export default function StatsPage() {
           <p className="mb-3 text-sm text-muted">Completed tasks & goals per {completedBy}.</p>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={completedSeries} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <BarChart data={completedSeries} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="var(--color-line)" />
                 <XAxis dataKey="label" {...AXIS} tickFormatter={(l: string) => (completedBy === "week" ? formatShort(l) : formatMonth(l).split(" ")[0].slice(0, 3))} minTickGap={16} />
-                <YAxis allowDecimals={false} {...AXIS} width={40} />
+                <YAxis allowDecimals={false} {...AXIS} width={36} />
                 <Tooltip content={<ChartTooltip fmt={(l) => (completedBy === "week" ? `Week of ${formatShort(l)}` : formatMonth(l))} />} cursor={{ fill: "var(--color-surface-3)" }} />
                 <Bar dataKey="count" name="Completed" fill="var(--color-accent)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
               </BarChart>
@@ -204,7 +204,7 @@ export default function StatsPage() {
               <div className="h-2 overflow-hidden rounded-full bg-surface-3">
                 <div className="h-full rounded-full" style={{ width: `${(e.days / 30) * 100}%`, background: e.color }} />
               </div>
-              <span className="tabular w-28 text-right text-xs text-muted">{e.days} days{e.minutes ? ` · ${Math.round(e.minutes / 6) / 10} h` : ""}</span>
+              <span className="tabular w-28 text-right text-xs text-muted">{e.days} day{e.days === 1 ? "" : "s"}{e.minutes ? ` · ${Math.round(e.minutes / 6) / 10} h` : ""}</span>
             </li>
           ))}
         </ul>

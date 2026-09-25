@@ -188,6 +188,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ...d,
         [key]: (d[key] as { id: string }[]).map((r) => (r.id === id ? saved : r)).sort(byPosition as never),
       }));
+      // Keep the auto-recorded activity of a completed goal in sync with the goal.
+      if (table === "goals") {
+        const g = saved as Goal;
+        const sync = { description: g.title, area_id: g.area_id, category_id: g.category_id };
+        const { error: e2 } = await supabase.from("activities").update(sync).eq("goal_id", id);
+        if (e2) fail(e2);
+        setData((d) => ({ ...d, activities: d.activities.map((a) => (a.goal_id === id ? { ...a, ...sync } : a)) }));
+      }
       return saved as Row<typeof table>;
     },
     [supabase, fail],

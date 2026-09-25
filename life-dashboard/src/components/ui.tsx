@@ -25,7 +25,7 @@ export function SectionTitle({ children, action, className }: { children: React.
   return (
     <div className={cx("mb-3 flex items-center justify-between gap-3", className)}>
       <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">{children}</h2>
-      {action}
+      {action && <div className="shrink-0 whitespace-nowrap">{action}</div>}
     </div>
   );
 }
