@@ -10,6 +10,7 @@ import { useEditors } from "@/components/editors";
 import { FocusCard } from "@/components/focus-card";
 import { GoalList } from "@/components/goal-item";
 import { ScoreStrip } from "@/components/score-spark";
+import { WeeklyReviewBanner } from "@/components/weekly-review";
 import { Button, Card, EmptyState, ProgressBar, Ring, ScoreBadge, SectionTitle } from "@/components/ui";
 
 export default function Dashboard() {
@@ -86,6 +87,8 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+
+      <WeeklyReviewBanner />
 
       {/* 3. Areas */}
       <section aria-label="Areas">

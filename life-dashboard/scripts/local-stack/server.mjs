@@ -46,6 +46,9 @@ function session(u) {
   };
 }
 
+// Body values: objects and arrays go to json/jsonb columns as JSON text (as PostgREST does).
+const bodyValue = (v) => (v !== null && typeof v === "object" ? JSON.stringify(v) : v);
+
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 const ident = (s) => {
   if (!IDENT.test(s)) throw Object.assign(new Error(`bad identifier ${s}`), { status: 400 });
@@ -156,7 +159,7 @@ async function handleRest(req, res, table, url) {
     const body = await readBody(req);
     const rows = Array.isArray(body) ? body : [body];
     const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))];
-    const tuples = rows.map((r) => `(${cols.map((c) => (c in r ? (values.push(r[c]), `$${values.length}`) : "default")).join(", ")})`);
+    const tuples = rows.map((r) => `(${cols.map((c) => (c in r ? (values.push(bodyValue(r[c])), `$${values.length}`) : "default")).join(", ")})`);
     sql = `insert into public.${ident(table)} (${cols.map(ident).join(", ")}) values ${tuples.join(", ")}`;
     const conflict = params.get("on_conflict");
     if (conflict && prefer.includes("resolution=merge-duplicates")) {
@@ -167,14 +170,14 @@ async function handleRest(req, res, table, url) {
     sql += returning;
   } else if (req.method === "PATCH") {
     const body = await readBody(req);
-    const sets = Object.keys(body).map((c) => (values.push(body[c]), `${ident(c)} = $${values.length}`));
+    const sets = Object.keys(body).map((c) => (values.push(bodyValue(body[c])), `${ident(c)} = $${values.length}`));
     sql = `update public.${ident(table)} set ${sets.join(", ")}${whereClause(params, values)}${returning}`;
   } else if (req.method === "DELETE") {
     sql = `delete from public.${ident(table)}${whereClause(params, values)}${returning}`;
   } else {
     return send(res, 405, { message: "method not allowed" });
   }
-  const result = await asUser(claims?.sub ? claims : null, (c) => c.query(sql, values.map((v) => (v !== null && typeof v === "object" && !Array.isArray(v) ? JSON.stringify(v) : v))));
+  const result = await asUser(claims?.sub ? claims : null, (c) => c.query(sql, values));
   const rows = result.rows ?? [];
   if (wantsObject) {
     if (rows.length !== 1) return send(res, 406, { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned", details: `The result contains ${rows.length} rows` });

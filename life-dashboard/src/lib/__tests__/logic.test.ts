@@ -102,7 +102,7 @@ describe("daily score", () => {
 describe("focus", () => {
   const date = "2026-09-25";
   const base = (p: Partial<AppData>): AppData => ({
-    areas: [], categories: [], goals: [], dailyLogs: [], activities: [], snapshots: [], stages: [], roadmapItems: [], settings: null, ...p,
+    areas: [], categories: [], goals: [], dailyLogs: [], activities: [], snapshots: [], stages: [], roadmapItems: [], settings: null, weeklyReviews: [], ...p,
   });
 
   it("flags the weakest category", () => {

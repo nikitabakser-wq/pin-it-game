@@ -20,6 +20,7 @@ Stack: Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Supabase (Post
 | **Calendar** `/calendar` | Month grid; every day shows its score as a number + colour band + tooltip |
 | **History** `/history` | Timeline by day, week (weekly goals kept per week) and month |
 | **Statistics** `/stats` | Overall progress over time, per-area trends, consistency (7/30/90 days), completed per week/month, effort per area |
+| **Weekly Review** `/reviews` | Automatic review of every finished week: average score, productive days, days per area, best/worst day, comparison with the previous week, analysis and 1–3 recommendations; history with a weekly chart |
 | **Roadmap** `/roadmap` | Editable life stages (e.g. "Age 14 · Sep 2026 → Jul 2027") with outcomes linked to live area progress |
 | **Settings** `/settings` | Display name, week start, daily score formula (weights), JSON export |
 
@@ -53,6 +54,16 @@ All of this lives in `src/lib/` and is covered by unit tests (`npm test`).
 Parts with nothing to measure (e.g. no high-priority tasks) are skipped and the rest are rescaled, so a perfect day is always 100.
 A day with no activity has no score. Weights, target and window are editable in Settings; any day can be overridden manually.
 
+**Weekly Review** (`weekly.ts`) — built on the same daily score:
+- weekly score = rounded average of the days that have a score (days without data are ignored; no scores → "not enough data", nothing is saved);
+- productive day = daily score ≥ 60; per area: days with activity, sessions, minutes; tasks, weekly goals, best/worst day, previous week;
+- one review per week, saved in `weekly_reviews` (unique per user + week). Finished weeks are created automatically when the app
+  is opened; the current week is prepared on its last day from 18:00 and rebuilt once it ends. Old reviews stay as they were
+  (a "refresh" button rebuilds one on demand);
+- analysis: Claude via `/api/weekly-review` when `ANTHROPIC_API_KEY` is set, otherwise a built-in rule-based text that only uses the numbers;
+- "review is ready": a banner on the dashboard + an optional browser notification while the app is open (`lib/notify.ts` is the
+  single entry point for adding real push later).
+
 **Today's Focus** (`focus.ts`) — rule-based and always available: overdue items, today's unfinished tasks,
 deadlines within 7 days, weekly goals behind pace, the weakest category in an area, areas without activity for 5+ days,
 and "nothing planned today". Top 3 by priority are shown.
@@ -67,6 +78,7 @@ all come from the same data.
 ### 1. Supabase
 1. Create a project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor**, paste `supabase/migrations/0001_init.sql` and run it (tables, indexes, row level security).
+   Then do the same with `supabase/migrations/0002_weekly_reviews.sql` (Weekly Review). Both are safe to run again.
 3. **Project Settings → API**: copy the Project URL and the anon/publishable key.
 4. **Authentication → URL Configuration**: set Site URL to your app URL (e.g. `https://your-app.vercel.app`) and add
    `https://your-app.vercel.app/auth/callback` to Redirect URLs.
@@ -108,6 +120,7 @@ auth.users
  │   ├─ goals                    kind = goal | weekly | task, priority, deadline, week_start, scheduled_for, completed
  │   └─ progress_snapshots       one row per area per day (for charts)
  ├─ daily_logs                   one per day: notes, manual score
+ ├─ weekly_reviews               one per week: score, stats snapshot, analysis, recommendations
  ├─ activities                   what was done: date, area, category, minutes, goal (auto for completed goals)
  └─ roadmap_stages → roadmap_items (optionally linked to an area)
 ```
@@ -144,11 +157,12 @@ with the real migration and RLS):
 
 ```bash
 createdb lifedash
-psql lifedash -f scripts/local-stack/auth-stub.sql -f supabase/migrations/0001_init.sql
+psql lifedash -f scripts/local-stack/auth-stub.sql -f supabase/migrations/0001_init.sql -f supabase/migrations/0002_weekly_reviews.sql
 DATABASE_URL=postgres://localhost/lifedash npm run stack:local          # :54321
 # .env.local: NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321, NEXT_PUBLIC_SUPABASE_ANON_KEY=local
 npm run build && npm start
-npm run e2e
+npm run e2e                     # core flow
+node scripts/e2e/weekly.mjs     # Weekly Review
 ```
 
 ## Designed to grow

@@ -138,6 +138,68 @@ export interface AppData {
   stages: RoadmapStage[];
   roadmapItems: RoadmapItem[];
   settings: UserSettings | null;
+  weeklyReviews: WeeklyReview[];
+}
+
+export interface WeeklyReview {
+  id: string;
+  user_id: string;
+  week_start: string;
+  score: number | null;
+  stats: WeekStats;
+  summary: string | null;
+  recommendations: string[];
+  source: "ai" | "rules";
+  final: boolean;
+  seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WeekDayStat {
+  date: string;
+  score: number | null;
+  manual: boolean;
+  notes: string | null;
+  activities: { areaId: string | null; description: string; minutes: number | null }[];
+  tasksPlanned: number;
+  tasksDone: number;
+}
+
+export interface WeekAreaStat {
+  areaId: string;
+  name: string;
+  icon: string;
+  color: string;
+  /** Days with at least one activity in this area. */
+  days: number;
+  /** Number of recorded activities (sessions). */
+  sessions: number;
+  minutes: number;
+  prevDays: number;
+}
+
+/** Everything a weekly review is built from. Saved as a snapshot with the review. */
+export interface WeekStats {
+  weekStart: string;
+  weekEnd: string;
+  weekNumber: number;
+  score: number | null;
+  scoredDays: number;
+  productiveDays: number;
+  productiveThreshold: number;
+  activeDays: number;
+  days: WeekDayStat[];
+  best: { date: string; score: number } | null;
+  worst: { date: string; score: number } | null;
+  prevScore: number | null;
+  delta: number | null;
+  areas: WeekAreaStat[];
+  tasks: { planned: number; done: number };
+  weeklyGoals: { total: number; done: number };
+  goalsCompleted: number;
+  minutes: number;
+  patterns: string[];
 }
 
 export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
