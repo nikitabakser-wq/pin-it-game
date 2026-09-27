@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ChartLine, History, LayoutGrid, ListChecks, LogOut, Map, Settings } from "lucide-react";
+import { ChartLine, History, LayoutGrid, ListChecks, LogOut, Map, Settings, Trophy } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { PageHeader } from "@/components/ui";
 
 const LINKS = [
   { href: "/goals", label: "Goals & tasks", sub: "Tasks, weekly goals, milestones", icon: ListChecks },
   { href: "/areas", label: "Areas", sub: "Create, edit, reorder", icon: LayoutGrid },
+  { href: "/reviews", label: "Weekly Review", sub: "Підсумок тижня та історія", icon: Trophy },
   { href: "/history", label: "History", sub: "Days, weeks, months", icon: History },
   { href: "/stats", label: "Statistics", sub: "Progress & consistency", icon: ChartLine },
   { href: "/roadmap", label: "Roadmap", sub: "Long-term direction", icon: Map },

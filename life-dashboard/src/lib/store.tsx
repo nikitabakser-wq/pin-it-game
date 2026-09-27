@@ -19,6 +19,7 @@ import type {
   RoadmapStage,
   ScoreConfig,
   UserSettings,
+  WeeklyReview,
 } from "./types";
 import { DEFAULT_SCORE_CONFIG } from "./types";
 
@@ -32,6 +33,7 @@ interface Tables {
   progress_snapshots: ProgressSnapshot;
   roadmap_stages: RoadmapStage;
   roadmap_items: RoadmapItem;
+  weekly_reviews: WeeklyReview;
 }
 type TableName = keyof Tables;
 type ListKey = Exclude<keyof AppData, "settings">;
@@ -45,6 +47,7 @@ const KEY: Record<TableName, ListKey> = {
   progress_snapshots: "snapshots",
   roadmap_stages: "stages",
   roadmap_items: "roadmapItems",
+  weekly_reviews: "weeklyReviews",
 };
 
 // Deleting these cascades in the database, so the whole dataset is reloaded afterwards.
@@ -60,6 +63,7 @@ const EMPTY: AppData = {
   stages: [],
   roadmapItems: [],
   settings: null,
+  weeklyReviews: [],
 };
 
 type Row<T extends TableName> = Tables[T];
@@ -71,6 +75,8 @@ export interface Store {
   loading: boolean;
   error: string | null;
   scoreConfig: ScoreConfig;
+  /** False when the weekly_reviews table does not exist yet (migration 0002 not applied). */
+  weeklyReviewsReady: boolean;
   reload: () => Promise<void>;
   insert: <T extends TableName>(table: T, row: NewRow<T>) => Promise<Row<T>>;
   update: <T extends TableName>(table: T, id: string, patch: NewRow<T>) => Promise<Row<T>>;
@@ -79,6 +85,8 @@ export interface Store {
   saveLog: (date: string, patch: Partial<Pick<DailyLog, "notes" | "manual_score">>) => Promise<void>;
   saveSettings: (patch: Partial<Pick<UserSettings, "display_name" | "score_config" | "week_starts_on">>) => Promise<void>;
   applyTemplate: () => Promise<void>;
+  /** Creates or replaces the review of one week (unique per user + week). */
+  saveWeeklyReview: (row: Omit<WeeklyReview, "id" | "user_id" | "created_at" | "updated_at" | "seen_at">) => Promise<WeeklyReview>;
   dayScore: (date: string) => DayScore;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -102,6 +110,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [weeklyReviewsReady, setWeeklyReviewsReady] = useState(false);
 
   const fail = useCallback((e: unknown): never => {
     const msg = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : String(e);
@@ -133,6 +142,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           q<RoadmapItem>("roadmap_items"),
           q<UserSettings>("user_settings"),
         ]);
+      // Loaded separately so the rest of the app keeps working before migration 0002 is applied.
+      const reviews = await supabase.from("weekly_reviews").select("*");
+      setWeeklyReviewsReady(!reviews.error);
       let settings = settingsRows[0] ?? null;
       if (!settings) {
         const { data: created, error } = await supabase
@@ -153,6 +165,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         stages: stages.sort(byPosition),
         roadmapItems: roadmapItems.sort(byPosition),
         settings,
+        weeklyReviews: ((reviews.data ?? []) as WeeklyReview[]).sort((a, b) => b.week_start.localeCompare(a.week_start)),
       });
       setError(null);
     } catch (e) {
@@ -274,6 +287,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [supabase, user, fail],
   );
 
+  const saveWeeklyReview: Store["saveWeeklyReview"] = useCallback(
+    async (row) => {
+      if (!user) throw new Error("Not signed in");
+      const { data: saved, error } = await supabase
+        .from("weekly_reviews")
+        .upsert({ user_id: user.id, ...row, updated_at: new Date().toISOString() }, { onConflict: "user_id,week_start" })
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      setData((d) => ({
+        ...d,
+        weeklyReviews: [...d.weeklyReviews.filter((r) => r.week_start !== row.week_start), saved as WeeklyReview].sort((a, b) =>
+          b.week_start.localeCompare(a.week_start),
+        ),
+      }));
+      return saved as WeeklyReview;
+    },
+    [supabase, user],
+  );
+
   const applyTemplate: Store["applyTemplate"] = useCallback(async () => {
     const base = data.areas.length;
     for (const [i, t] of templateAreas.entries()) {
@@ -358,6 +391,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     scoreConfig,
+    weeklyReviewsReady,
     reload,
     insert,
     update,
@@ -366,6 +400,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     saveLog,
     saveSettings,
     applyTemplate,
+    saveWeeklyReview,
     dayScore,
     signOut,
     clearError: () => setError(null),

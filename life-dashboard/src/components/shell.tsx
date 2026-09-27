@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ChartLine, History, LayoutGrid, ListChecks, LogOut, Map, Plus, Settings, Sun } from "lucide-react";
+import { CalendarDays, ChartLine, History, LayoutGrid, ListChecks, LogOut, Map, Plus, Settings, Sun, Trophy } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { today } from "@/lib/dates";
 import { useEditors } from "./editors";
+import { WeeklyReviewAutopilot } from "./weekly-review";
 import { Button, cx, Modal } from "./ui";
 
 const NAV = [
@@ -15,6 +16,7 @@ const NAV = [
   { href: "/goals", label: "Goals", icon: ListChecks },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/history", label: "History", icon: History },
+  { href: "/reviews", label: "Weekly Review", icon: Trophy },
   { href: "/stats", label: "Statistics", icon: ChartLine },
   { href: "/roadmap", label: "Roadmap", icon: Map },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -34,6 +36,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-glow min-h-dvh">
+      <WeeklyReviewAutopilot />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line bg-surface/60 px-3 py-5 backdrop-blur lg:flex">
         <Link href="/" className="mb-6 flex items-center gap-2.5 px-3">
@@ -112,7 +115,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           <MobileLink href="/calendar" label="Calendar" active={isActive(pathname, "/calendar")} Icon={CalendarDays} />
-          <MobileLink href="/more" label="More" active={["/more", "/goals", "/history", "/stats", "/roadmap", "/settings"].some((p) => isActive(pathname, p))} Icon={LayoutGrid} />
+          <MobileLink href="/more" label="More" active={["/more", "/goals", "/history", "/reviews", "/stats", "/roadmap", "/settings", "/areas"].some((p) => isActive(pathname, p))} Icon={LayoutGrid} />
         </div>
       </nav>
 
