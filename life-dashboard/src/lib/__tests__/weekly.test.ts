@@ -122,3 +122,24 @@ describe("when reviews are due", () => {
     expect(firstDataDate(base({ dailyLogs: [log("2026-09-10", null)], activities: [act("2026-09-12", "a")] }))).toBe("2026-09-10");
   });
 });
+
+describe("share card", () => {
+  it("shows only real numbers and never notes", async () => {
+    const { cardLines, cardCaption } = await import("../share-card");
+    const gym = area("Gym");
+    const en = area("English");
+    const d = base({
+      areas: [gym, en],
+      activities: [0, 1, 2].map((i) => act(addDays(WEEK, i), gym.id)),
+      dailyLogs: [0, 1, 2].map((i) => log(addDays(WEEK, i), 80, "secret note")),
+    });
+    const s = computeWeekStats(d, WEEK, scorer(d));
+    const lines = cardLines(s, 5).map((l) => l.text);
+    expect(lines).toEqual(["🔥 3/7 продуктивних днів", "3 дні — Gym"]);
+    const caption = cardCaption(s);
+    expect(caption).toContain("Тиждень 39: 80/100 🔥");
+    expect(caption).toContain("Gym — 3 дні");
+    expect(caption).not.toContain("English");
+    expect(caption).not.toContain("secret");
+  });
+});

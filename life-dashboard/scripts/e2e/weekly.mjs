@@ -116,6 +116,29 @@ await page.getByText("🏆 Weekly Review").waitFor();
 await shot("weekly-review");
 ok("full review: score, metrics, best/worst day, analysis, next week; AI falls back to rules");
 
+// Share card
+await page.getByRole("button", { name: "Картка для соцмереж" }).click();
+const img = modal().getByRole("img", { name: /Картка тижня/ });
+await img.waitFor();
+expect((await img.getAttribute("src")).startsWith("data:image/png"), "card preview is a PNG");
+const saveCard = async (name) => {
+  const [dl] = await Promise.all([page.waitForEvent("download"), modal().getByRole("button", { name: "Завантажити" }).click()]);
+  if (SHOTS) await dl.saveAs(`${SHOTS}/${name}.png`);
+  return dl.suggestedFilename();
+};
+const storyName = await saveCard("card-story");
+expect(/tyzhden-\d+-story\.png/.test(storyName), `story file name (${storyName})`);
+await modal().getByRole("tab", { name: "Пост 4:5" }).click();
+await modal().getByPlaceholder("@нік").fill("@lifeprogress");
+const postName = await saveCard("card-post");
+expect(postName.endsWith("-post.png"), "post file name");
+const caption = await modal().getByLabel("Текст до посту").inputValue();
+expect(caption.includes(`${expected}/100`) && caption.includes("#мійтиждень"), "caption with the weekly score");
+expect(!caption.includes("Tired"), "caption has no private notes");
+await shot("card-dialog");
+await page.keyboard.press("Escape");
+ok("share card: preview, Stories + post PNG, signature, caption without notes");
+
 // Seen → banner gone
 await page.goto(`${BASE}/`);
 await page.getByText("Today's focus", { exact: false }).waitFor();
