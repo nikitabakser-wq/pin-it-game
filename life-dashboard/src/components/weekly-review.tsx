@@ -25,6 +25,7 @@ import {
   type WeekAnalysis,
 } from "@/lib/weekly";
 import { ScoreStrip } from "./score-spark";
+import { ShareCardButton } from "./share-card";
 import { BAND_COLOR, Button, Card, cx, Ring, SectionTitle } from "./ui";
 
 // ───────────────────────── analysis (AI with rule-based fallback) ─────────────────────────
@@ -235,6 +236,9 @@ export function ReviewView({
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               <DeltaPill delta={stats.delta} />
               {stats.prevScore !== null && <span className="text-xs text-muted">минулого: {stats.prevScore}/100</span>}
+            </div>
+            <div className="mt-4 flex justify-center sm:justify-start">
+              <ShareCardButton stats={stats} />
             </div>
             <p className="mt-3 text-[11px] text-faint">
               Середнє з оцінок {daysWord(stats.scoredDays)} цього тижня
